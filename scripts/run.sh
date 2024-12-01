@@ -2,9 +2,16 @@
 
 ### Functions
 
+# Pretty print a message
+function pretty_print {
+  printf "\033[36m%-30s\033[0m %s\n" "$1" "$2"
+}
 # List all available commands
 function list {
   echo "List all available commands"
+  pretty_print "zsh_reload" "Reload zsh"
+  pretty_print "gprune" "Prune merged git branches"
+  pretty_print "dprune" "Prune docker system"
 }
 
 # Reload zsh
