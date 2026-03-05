@@ -2,8 +2,7 @@
 # @description Compare API Gateway configuration between two environments
 #
 # Compare API Gateway configuration between two environments (e.g. stage vs prod).
-# Use this to verify both environments are configured the same way, especially
-# for the redirect-form endpoint (302 + Location header).
+# Use this to verify both environments are configured the same way.
 #
 # Prerequisites:
 #   - AWS CLI installed and configured
