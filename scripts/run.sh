@@ -1,61 +1,80 @@
 #!/bin/bash
 
-### Functions
+SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 
-# Pretty print a message
 function pretty_print {
-  printf "\033[36m%-30s\033[0m %s\n" "$1" "$2"
+  printf "  \033[36m%-30s\033[0m %s\n" "$1" "$2"
 }
-# List all available commands
+
+function print_group {
+  local dir="$1"
+  local label="$2"
+
+  local has_scripts=false
+  for script in "$dir"/*.sh; do
+    [ -f "$script" ] && has_scripts=true && break
+  done
+  $has_scripts || return
+
+  printf "\033[1m%s\033[0m\n" "$label"
+  for script in "$dir"/*.sh; do
+    [ -f "$script" ] || continue
+    name=$(basename "$script" .sh)
+    desc=$(grep -m1 '^# @description' "$script" | sed 's/^# @description //')
+    pretty_print "$name" "$desc"
+  done
+  echo ""
+}
+
 function list {
-  echo "List all available commands"
-  pretty_print "zsh_reload" "Reload zsh"
-  pretty_print "gprune" "Prune merged git branches"
-  pretty_print "dprune" "Prune docker system"
+  echo "Available commands:"
+  echo ""
+
+  # Global commands first
+  print_group "$SCRIPT_DIR/global" "Global"
+
+  # Then every other subfolder alphabetically
+  for dir in "$SCRIPT_DIR"/*/; do
+    [ -d "$dir" ] || continue
+    folder=$(basename "$dir")
+    [ "$folder" = "global" ] && continue
+    print_group "$dir" "$folder"
+  done
 }
 
-# Reload zsh
-function zsh_reload {
-  # Delete the completion cache
-  # rm "$ZSH_COMPDUMP"
-  # Restart the zsh session
-  exec zsh
-}
+function find_script {
+  local cmd="$1"
 
-# Prune git branches
-function gprune {
-  echo "Pruning merged git branches"
-  # Validate we're in a git repository
-  if ! git rev-parse --git-dir > /dev/null 2>&1; then
-    echo "Error: Not in a git repository"
-    exit 1
+  # Search global first, then other folders
+  if [ -f "$SCRIPT_DIR/global/$cmd.sh" ]; then
+    echo "$SCRIPT_DIR/global/$cmd.sh"
+    return
   fi
-  # Delete merged branches (excluding main), only if any exist
-  merged=$(git branch --merged=main | grep -v -E '^\*? *main$' | sed 's/^[* ]*//')
-  if [ -n "$merged" ]; then
-    echo "$merged" | xargs git branch -d
-  fi
-  git fetch --prune
+
+  for dir in "$SCRIPT_DIR"/*/; do
+    [ -d "$dir" ] || continue
+    if [ -f "$dir/$cmd.sh" ]; then
+      echo "$dir/$cmd.sh"
+      return
+    fi
+  done
 }
 
-function dprune {
-  echo "Pruning docker system"
-  (docker system prune -a && docker volume prune --force && docker network prune --force && docker image prune --force)
-}
+command="$1"
+shift 2>/dev/null
 
-################################################
-# Check wich command to run (param to be passed)
-case $1 in
-  "zsh_reload")
-    zsh_reload
-    ;;
-  "gprune")
-    gprune
-    ;;
-  "dprune")
-    dprune
-    ;;
-  *)
-    list
-    ;;
-esac
+if [ -z "$command" ]; then
+  list
+  exit 0
+fi
+
+target=$(find_script "$command")
+
+if [ -n "$target" ]; then
+  exec bash "$target" "$@"
+else
+  echo "Unknown command: $command"
+  echo ""
+  list
+  exit 1
+fi
